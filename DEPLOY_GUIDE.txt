@@ -1,0 +1,68 @@
+# Hassan Tax World — Railway Deployment Guide
+
+## Step 1: Install Git (if not installed)
+Download from: https://git-scm.com/download/win
+Install with default settings.
+
+## Step 2: Update your app files
+Copy these files into I:\Hassan Tax App\:
+- App.jsx → src\App.jsx
+- server.cjs → server.cjs
+- package.json → package.json
+- railway.toml → railway.toml
+- vite.config.js → vite.config.js
+
+## Step 3: Create .gitignore file
+Create a file called .gitignore in I:\Hassan Tax App\ with this content:
+```
+node_modules/
+dist/
+tax-files/
+tax-data/
+api-key.txt
+*.local
+```
+
+## Step 4: Push to GitHub
+Open terminal in I:\Hassan Tax App\ and run:
+```
+git init
+git add .
+git commit -m "Initial deploy"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/hassan-tax-world.git
+git push -u origin main
+```
+(Create a new repo called "hassan-tax-world" on github.com first)
+
+## Step 5: Deploy on Railway
+1. Go to railway.app
+2. Click "New Project"
+3. Click "Deploy from GitHub repo"
+4. Select your hassan-tax-world repo
+5. Railway auto-detects and deploys
+
+## Step 6: Set Environment Variables on Railway
+In Railway dashboard → your project → Variables tab, add:
+```
+ANTHROPIC_API_KEY = sk-ant-api03-your-key-here
+ADMIN_PASSWORD = YourChosenPassword123
+```
+
+## Step 7: Get your URL
+Railway gives you a URL like: https://hassan-tax-world.up.railway.app
+Share this with anyone who needs access.
+
+## Login Credentials
+- Username: admin
+- Password: whatever you set as ADMIN_PASSWORD above
+
+## Important Notes
+- Your data (PDFs, entries) lives on Railway's disk
+- Export backup regularly from the app sidebar
+- If you need to add more users, use the app's user management
+- Railway $5/month includes 500GB bandwidth + 1GB RAM
+
+## Local Development (still works)
+Just double-click START_APP.bat as before.
+The app detects whether it's running locally or on cloud automatically.

@@ -1,0 +1,8 @@
+```
+node_modules/
+dist/
+tax-files/
+tax-data/
+api-key.txt
+*.local
+```
