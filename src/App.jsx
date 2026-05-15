@@ -7,7 +7,7 @@ const API = BASE_URL+"/api";
 
 // Auth token storage
 const getToken = ()=>localStorage.getItem("htw_token")||"";
-const authHeaders = ()=>{"Content-Type":"application/json","x-auth-token":getToken()};
+const authHeaders = ()=>({"Content-Type":"application/json","x-auth-token":getToken()});
 const authFetch = (url,opts={})=>fetch(url,{...opts,headers:{...opts.headers,"x-auth-token":getToken(),"Content-Type":"application/json"}});
 
 async function apiListFiles() {
