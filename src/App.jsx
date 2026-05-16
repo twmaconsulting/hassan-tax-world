@@ -98,9 +98,9 @@ async function lsSet(key,val){
   // PRIMARY: save to server (unlimited I: drive storage)
   try{
     if(key==="kb-entries-v2"){
-      await fetch("${API}/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)});
+      await fetch(`${API}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)});
     } else if(key==="kb-files-meta-v2"){
-      await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Array.isArray(val)?val:[val])});
+      await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Array.isArray(val)?val:[val])});
     }
   }catch(e){console.warn("Server save failed:",e);}
   // FALLBACK: also try localStorage (may fail if full - that is OK)
@@ -110,10 +110,10 @@ async function lsGet(key){
   // PRIMARY: load from server
   try{
     if(key==="kb-entries-v2"){
-      const r=await fetch("${API}/entries");
+      const r=await fetch(`${API}/entries`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     } else if(key==="kb-files-meta-v2"){
-      const r=await fetch("${API}/files-meta");
+      const r=await fetch(`${API}/files-meta`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     }
   }catch(e){console.warn("Server load failed, trying localStorage:",e);}
@@ -123,7 +123,7 @@ async function lsGet(key){
 
 async function callClaude(messages, system="") {
   try {
-    const res=await fetch("${API}/ai",{
+    const res=await fetch(`${API}/ai`,{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({system,messages})
     });
@@ -136,7 +136,7 @@ async function callClaude(messages, system="") {
     if(d.type==="error") throw new Error(d.error?.message||JSON.stringify(d));
     return d.content?.map(b=>b.text||"").join("")||"";
   } catch(e) {
-    if(e.message==="Failed to fetch") throw new Error("Server unreachable — is npm run dev running on port 3001?");
+    if(e.message==="Failed to fetch") throw new Error("Server unreachable — please try again or contact support.");
     throw e;
   }
 }
@@ -418,7 +418,7 @@ function EntryForm({catId,docTypeId,initial,onSave,onClose}){
       const cappedText = extractedText // No limit;
       const meta={id:genId(),name:saved.name,originalName:saved.original,fileType:file.type,size:saved.size,catId,notes:"",pages,extractedText:cappedText,createdAt:new Date().toISOString()};
       try{
-        await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([meta])});
+        await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([meta])});
       }catch(e){console.warn("File meta save error:",e);}
       setUploadMsg(`✓ ${saved.name} attached${pages>0?` · ${pages} pages extracted`:""}`);
       s("attachedFile",{name:saved.name,pages,size:saved.size});
@@ -1039,7 +1039,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
         // Upload file
         const fd = new FormData();
         fd.append("files", file);
-        const uploadRes = await fetch("${API}/upload", {method:"POST", body:fd});
+        const uploadRes = await fetch(`${API}/upload`, {method:"POST", body:fd});
         
         if(!uploadRes.ok){
           const errText = await uploadRes.text();
@@ -1066,7 +1066,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
           notes:"", pages, extractedText:storedText, createdAt:new Date().toISOString()
         };
         try {
-          await fetch("${API}/files-meta",{
+          await fetch(`${API}/files-meta`,{
             method:"POST", headers:{"Content-Type":"application/json"},
             body:JSON.stringify([meta])
           });
@@ -1094,7 +1094,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
 
         // Save directly to server (unlimited storage on I: drive)
         try {
-          const saveRes = await fetch("${API}/entries/add",{
+          const saveRes = await fetch(`${API}/entries/add`,{
             method:"POST", headers:{"Content-Type":"application/json"},
             body:JSON.stringify([entry])
           });
@@ -1109,7 +1109,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
         console.error("Bulk upload error:", file.name, err);
         const errMsg = err.message||"unknown error";
         if(errMsg==="Failed to fetch"){
-          setBulkStatus("Server not running — open terminal and run: npm run dev");
+          setBulkStatus("Server connection error — please refresh and try again.");
           setBulkUploading(false); return;
         }
         errors.push(file.name+": "+errMsg);
@@ -1120,9 +1120,9 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
     // Refresh React state from server immediately
     if(results.length > 0){
       try{
-        const er = await fetch("${API}/entries");
+        const er = await fetch(`${API}/entries`);
         if(er.ok) setEntries(await er.json());
-        const fr = await fetch("${API}/files-meta");
+        const fr = await fetch(`${API}/files-meta`);
         if(fr.ok) setFiles(await fr.json());
       }catch(e){ console.warn("State refresh failed:", e); }
     }
@@ -1145,7 +1145,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
         if(!entry.attachedFile?.name) continue;
         try{
           const b64Res = await Promise.race([
-            fetch("${API.replace('/api','')}/api/file/"+encodeURIComponent(entry.attachedFile.name)+"/base64"),
+            fetch(`${API.replace(\'/api\',\'\')}/api/file/${encodeURIComponent(entry.attachedFile.name)}/base64`),
             new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),25000))
           ]);
           if(!b64Res.ok) continue;
@@ -1160,7 +1160,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
           if(!text) continue;
           // Cap at 100KB and save to server file-meta
           const storedText = text; // No limit
-          await fetch("${API}/files-meta",{
+          await fetch(`${API}/files-meta`,{
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify([{
@@ -1179,7 +1179,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
       }
       // Final state refresh with text included
       try{
-        const fr2 = await fetch("${API}/files-meta");
+        const fr2 = await fetch(`${API}/files-meta`);
         if(fr2.ok) setFiles(await fr2.json());
       }catch{}
       setBulkStatus("Done! "+results.length+" entr"+(results.length!==1?"ies":"y")+" added. Text extracted for "+extracted+" PDFs — search is ready.");
@@ -1204,13 +1204,13 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
               setBulkStatus("["+(i+1)+"/"+arr.length+"] "+file.name.slice(0,40));
               try{
                 const fd=new FormData();fd.append("files",file);
-                const r=await fetch("${API}/upload",{method:"POST",body:fd});
+                const r=await fetch(`${API}/upload`,{method:"POST",body:fd});
                 if(!r.ok) continue;
                 const j=await r.json();if(!j.ok||!j.files[0]) continue;
                 const saved=j.files[0];
                 const cleanTitle=file.name.replace(/[.]pdf$/i,"").replace(/[._-]+/g," ").trim();
                 const entry={id:genId(),catId:destCatId,docTypeId:destDtId,title:cleanTitle,reference:"",year:"",month:"",status:"Active",attachedFile:{name:saved.name,size:saved.size,pages:0},notesFile:null,flashFile:null,summaryFile:null,examFile:null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-                await fetch("${API}/entries/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([entry])});
+                await fetch(`${API}/entries/add`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([entry])});
                 results.push(entry);
               }catch{}
             }
@@ -1225,7 +1225,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
                 const saved=res.files[0];
                 const cleanTitle=decodeURIComponent(saved.name).replace(/[._-]+/g," ").replace(/[ ]*pdf$/i,"").trim()||"Downloaded Document";
                 const entry={id:genId(),catId:destCatId,docTypeId:destDtId,title:cleanTitle,reference:"",year:"",month:"",status:"Active",attachedFile:{name:saved.name,size:saved.size,pages:0},notesFile:null,flashFile:null,summaryFile:null,examFile:null,sourceUrl:droppedUrl,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-                await fetch("${API}/entries/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([entry])});
+                await fetch(`${API}/entries/add`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([entry])});
                 if(onBulkSave) onBulkSave([entry]);
                 setBulkStatus("✓ Saved to "+TAX_CATS.find(c=>c.id===destCatId)?.label+": "+cleanTitle);
               }else{setBulkStatus("Failed: "+(res.error||"error"));}
@@ -1290,7 +1290,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
           for(const entry of noText){
             try{
               const b64Res=await Promise.race([
-                fetch("${API.replace('/api','')}/api/file/"+encodeURIComponent(entry.attachedFile.name)+"/base64"),
+                fetch(`${API.replace(\'/api\',\'\')}/api/file/${encodeURIComponent(entry.attachedFile.name)}/base64`),
                 new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),20000))
               ]);
               if(!b64Res.ok) continue;
@@ -1303,14 +1303,14 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
               const text=r.text||"";
               if(!text) continue;
               const stored=text; // No limit — full document stored
-              await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},
+              await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},
                 body:JSON.stringify([{id:entry.id+"_meta",name:entry.attachedFile.name,originalName:entry.attachedFile.name,
                   catId:entry.catId,size:entry.attachedFile.size||0,pages:r.pages||0,extractedText:stored,createdAt:new Date().toISOString()}])});
               done++;
               setBulkStatus("Extracted "+done+"/"+noText.length+" — "+entry.attachedFile.name.slice(0,30));
             }catch(e){console.warn("Extract failed:",e.message);}
           }
-          const fr=await fetch("${API}/files-meta");
+          const fr=await fetch(`${API}/files-meta`);
           if(fr.ok) setFiles(await fr.json());
           setBulkStatus("Done! Text extracted for "+done+" PDFs. Search inside PDFs is now active.");
           setTimeout(()=>setBulkStatus(""),8000);
@@ -2006,7 +2006,7 @@ function FileLib({files,setFiles,entries,onAI}){
       const e=todo[i];
       setMsg("["+(i+1)+"/"+todo.length+"] "+e.title.slice(0,50)+"...");
       try{
-        const b=await fetch("${API.replace('/api','')}/api/file/"+encodeURIComponent(e.attachedFile.name)+"/base64");
+        const b=await fetch(`${API.replace(\'/api\',\'\')}/api/file/${encodeURIComponent(e.attachedFile.name)}/base64`);
         if(!b.ok){fail++;continue;}
         const bj=await b.json();
         if(!bj.base64){fail++;continue;}
@@ -2014,11 +2014,11 @@ function FileLib({files,setFiles,entries,onAI}){
         if(!r.text){fail++;continue;}
         const existing=safeFiles.find(f=>f.name===e.attachedFile.name);
         const meta={id:existing?.id||(e.id+"_m"),name:e.attachedFile.name,originalName:existing?.originalName||e.attachedFile.name,catId:e.catId,size:e.attachedFile.size||0,pages:r.pages||0,extractedText:r.text,createdAt:existing?.createdAt||new Date().toISOString()};
-        await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([meta])});
+        await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([meta])});
         done++;
       }catch(err){fail++;console.warn(err);}
     }
-    const fr=await fetch("${API}/files-meta");
+    const fr=await fetch(`${API}/files-meta`);
     if(fr.ok)setFiles(await fr.json());
     setMsg("✓ Done! "+done+" extracted"+(fail?" · "+fail+" failed":"")+". All content is now searchable.");
     setExtracting(false);
@@ -2032,8 +2032,8 @@ function FileLib({files,setFiles,entries,onAI}){
       const res=await apiUpload(fileList);
       if(!res.ok)throw new Error(res.error||"failed");
       const metas=res.files.map(f=>({id:genId(),name:f.name,originalName:f.original||f.name,fileType:"application/pdf",size:f.size||0,catId:"",notes:"",pages:0,extractedText:"",createdAt:new Date().toISOString()}));
-      await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(metas)});
-      const fr=await fetch("${API}/files-meta");
+      await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(metas)});
+      const fr=await fetch(`${API}/files-meta`);
       if(fr.ok)setFiles(await fr.json());
       setMsg("✓ "+res.files.length+" file(s) uploaded");
     }catch(e){setMsg("Error: "+e.message);}
@@ -2046,7 +2046,7 @@ function FileLib({files,setFiles,entries,onAI}){
     try{await apiDelete(f.name);}catch{}
     const next=safeFiles.filter(x=>x.id!==f.id);
     setFiles(next);
-    await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});
+    await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});
   }
 
   const catOf=id=>TAX_CATS.find(c=>c.id===id)||TAX_CATS[TAX_CATS.length-1];
@@ -2145,7 +2145,7 @@ function FileLib({files,setFiles,entries,onAI}){
             <Btn variant="primary" onClick={async()=>{
               const next=safeFiles.map(f=>f.id===viewFile.id?{...f,...viewFile}:f);
               setFiles(next);
-              await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});
+              await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});
               setViewFile(null);
             }}>Save</Btn>
             <Btn onClick={()=>setViewFile(null)}>Cancel</Btn>
@@ -2507,9 +2507,9 @@ function App(){
   async function exportBackup(){
     let entries=[], files2=[];
     try{
-      const er=await fetch("${API}/entries");
+      const er=await fetch(`${API}/entries`);
       if(er.ok) entries=await er.json();
-      const fr=await fetch("${API}/files-meta");
+      const fr=await fetch(`${API}/files-meta`);
       if(fr.ok) files2=await fr.json();
     }catch(e){
       entries=JSON.parse(localStorage.getItem("kb-entries-v2")||"[]");
@@ -2536,8 +2536,8 @@ function App(){
         if(!window.confirm("Replace current data with "+entries.length+" entries from this backup?"))return;
         // Save to server
         try{
-          await fetch("${API}/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entries)});
-          await fetch("${API}/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(files2)});
+          await fetch(`${API}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entries)});
+          await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(files2)});
         }catch(e){console.warn("Server restore failed, using localStorage");}
         // Also save to localStorage as backup
         try{localStorage.setItem("kb-entries-v2",JSON.stringify(entries));}catch{}
@@ -2659,9 +2659,9 @@ function App(){
           onAdd={()=>setModal({catId:nav.catId,docTypeId:nav.docTypeId,editing:null})}
           onBulkSave={async newEntries=>{
             try{
-              const er=await fetch("${API}/entries");
+              const er=await fetch(`${API}/entries`);
               if(er.ok) setEntries(await er.json());
-              const fr=await fetch("${API}/files-meta");
+              const fr=await fetch(`${API}/files-meta`);
               if(fr.ok) setFiles(await fr.json());
             }catch(err){ console.error("State refresh error:",err); }
           }}
@@ -2672,7 +2672,7 @@ function App(){
                 const updated=entries.map(e=>e.id===it.id?{...e,catId,docTypeId,updatedAt:new Date().toISOString()}:e);
                 setEntries(updated);
                 lsSet(STORE_KEY,updated);
-                fetch("${API}/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(updated)}).catch(()=>{});
+                fetch(`${API}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(updated)}).catch(()=>{});
               } else {
                 setDetail(it);
               }
