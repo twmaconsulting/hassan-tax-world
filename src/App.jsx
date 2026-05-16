@@ -136,7 +136,7 @@ async function callClaude(messages, system="") {
     if(d.type==="error") throw new Error(d.error?.message||JSON.stringify(d));
     return d.content?.map(b=>b.text||"").join("")||"";
   } catch(e) {
-    if(e.message==="Failed to fetch") throw new Error("Server unreachable — please try again or contact support.");
+    if(e.message==="Failed to fetch") throw new Error("Server unreachable — please refresh and try again.");
     throw e;
   }
 }
@@ -1145,7 +1145,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
         if(!entry.attachedFile?.name) continue;
         try{
           const b64Res = await Promise.race([
-            fetch(`${API.replace(\'/api\',\'\')}/api/file/${encodeURIComponent(entry.attachedFile.name)}/base64`),
+            fetch(`${API.replace('/api','')}/api/file/${encodeURIComponent(entry.attachedFile.name)}/base64`),
             new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),25000))
           ]);
           if(!b64Res.ok) continue;
@@ -1290,7 +1290,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
           for(const entry of noText){
             try{
               const b64Res=await Promise.race([
-                fetch(`${API.replace(\'/api\',\'\')}/api/file/${encodeURIComponent(entry.attachedFile.name)}/base64`),
+                fetch(`${API.replace('/api','')}/api/file/${encodeURIComponent(entry.attachedFile.name)}/base64`),
                 new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),20000))
               ]);
               if(!b64Res.ok) continue;
@@ -2006,7 +2006,7 @@ function FileLib({files,setFiles,entries,onAI}){
       const e=todo[i];
       setMsg("["+(i+1)+"/"+todo.length+"] "+e.title.slice(0,50)+"...");
       try{
-        const b=await fetch(`${API.replace(\'/api\',\'\')}/api/file/${encodeURIComponent(e.attachedFile.name)}/base64`);
+        const b=await fetch(`${API.replace('/api','')}/api/file/${encodeURIComponent(e.attachedFile.name)}/base64`);
         if(!b.ok){fail++;continue;}
         const bj=await b.json();
         if(!bj.base64){fail++;continue;}
