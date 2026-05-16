@@ -98,9 +98,9 @@ async function lsSet(key,val){
   // PRIMARY: save to server (unlimited I: drive storage)
   try{
     if(key==="kb-entries-v2"){
-      await fetch(`${API}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)});
+      await authFetch(`${API}/entries`,{method:"POST",body:JSON.stringify(val)});
     } else if(key==="kb-files-meta-v2"){
-      await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Array.isArray(val)?val:[val])});
+      await authFetch(`${API}/files-meta`,{method:"POST",body:JSON.stringify(Array.isArray(val)?val:[val])});
     }
   }catch(e){console.warn("Server save failed:",e);}
   // FALLBACK: also try localStorage (may fail if full - that is OK)
@@ -110,10 +110,10 @@ async function lsGet(key){
   // PRIMARY: load from server
   try{
     if(key==="kb-entries-v2"){
-      const r=await fetch(`${API}/entries`);
+      const r=await authFetch(`${API}/entries`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     } else if(key==="kb-files-meta-v2"){
-      const r=await fetch(`${API}/files-meta`);
+      const r=await authFetch(`${API}/files-meta`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     }
   }catch(e){console.warn("Server load failed, trying localStorage:",e);}
@@ -1109,7 +1109,7 @@ function CatPage({cat,entries,files=[],onAdd,onBulkSave,onItem,activeType,onChan
         console.error("Bulk upload error:", file.name, err);
         const errMsg = err.message||"unknown error";
         if(errMsg==="Failed to fetch"){
-          setBulkStatus("Server connection error — please refresh and try again.");
+          setBulkStatus("Server not running — open terminal and run: npm run dev");
           setBulkUploading(false); return;
         }
         errors.push(file.name+": "+errMsg);
@@ -2492,7 +2492,7 @@ function App(){
       }catch{}
       setLoaded(true);
     })();
-  },[]);
+  },[token]);
 
 // Downloads polling removed
 
@@ -2554,7 +2554,7 @@ function App(){
     setExpanded(p=>({...p,[catId]:true}));
   };
 
-  if(!token) return <LoginScreen onLogin={(t,n)=>{setToken(t);setUserName(n);setLoaded(false);}}/>;
+  if(!token) return <LoginScreen onLogin={(t,n)=>{setToken(t);setUserName(n);}}/>;
   if(!loaded)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#F0F2F5"}}><Spinner size={36}/></div>;
   const navCat=nav.catId?TAX_CATS.find(c=>c.id===nav.catId):null;
 
