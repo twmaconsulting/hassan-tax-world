@@ -2461,7 +2461,7 @@ function App(){
   const [userName,setUserName]=useState(()=>localStorage.getItem("htw_name")||"");
   const [entries,setEntries]=useState([]);
   const [files,setFiles]=useState([]);
-  const [loaded,setLoaded]=useState(false);
+  const [loaded,setLoaded]=useState(true);
 
 
   const [nav,setNav]=useState({view:"dashboard"});
@@ -2707,3 +2707,5 @@ function App(){
     {aiTarget&&<AIPanel item={aiTarget.item} file={aiTarget.file} onClose={()=>setAiTarget(null)}/>}
   </div>);
 }
+
+
