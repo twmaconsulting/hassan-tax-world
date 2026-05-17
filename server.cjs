@@ -16,18 +16,23 @@ const FILES_DIR = process.env.FILES_DIR || path.join(__dirname, "tax-files");
 const ENTRIES   = path.join(DATA_DIR, "entries.json");
 const FILES_META= path.join(DATA_DIR, "files-meta.json");
 const USERS_FILE= path.join(DATA_DIR, "users.json");
-// ── Sessions (persisted to disk so they survive server restarts) ───────────
+// ── Sessions (persisted to disk) ───────────────────────────────────────────
 const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
-function loadSessions(){
-  try{ return JSON.parse(fs.readFileSync(SESSIONS_FILE,"utf8")); }catch{ return {}; }
-}
-function saveSessions(s){
-  try{ fs.writeFileSync(SESSIONS_FILE,JSON.stringify(s)); }catch{}
-}
+function loadSessions(){ try{ return JSON.parse(fs.readFileSync(SESSIONS_FILE,"utf8")); }catch{ return {}; } }
+function saveSessions(s){ try{ fs.writeFileSync(SESSIONS_FILE,JSON.stringify(s)); }catch{} }
 const SESSIONS = loadSessions();
-// Clean expired sessions on startup
 Object.keys(SESSIONS).forEach(t=>{ if(Date.now()>SESSIONS[t].expires) delete SESSIONS[t]; });
 saveSessions(SESSIONS);
+
+// ── Cookie parser (no extra dependency) ────────────────────────────────────
+function parseCookies(req){
+  const out={};
+  (req.headers.cookie||"").split(";").forEach(c=>{
+    const i=c.indexOf("="); if(i<0)return;
+    out[c.slice(0,i).trim()]=decodeURIComponent(c.slice(i+1).trim());
+  });
+  return out;
+}
 
 // ── API Key ────────────────────────────────────────────────────────────────
 let ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
@@ -60,12 +65,13 @@ function hashPass(p){ return crypto.createHash("sha256").update(p).digest("hex")
 function genToken(){ return crypto.randomBytes(32).toString("hex"); }
 
 function requireAuth(req,res,next){
-  const token = req.headers["x-auth-token"] || req.query.token;
+  const cookies=parseCookies(req);
+  const token = req.headers["x-auth-token"] || cookies.htw_session || req.query.token;
   if(!token) return res.status(401).json({error:"Not authenticated"});
   const session = SESSIONS[token];
   if(!session) return res.status(401).json({error:"Session expired"});
-  if(Date.now() > session.expires) { delete SESSIONS[token]; saveSessions(SESSIONS); return res.status(401).json({error:"Session expired"}); }
-  session.expires = Date.now() + 8*60*60*1000; // refresh
+  if(Date.now() > session.expires){ delete SESSIONS[token]; saveSessions(SESSIONS); return res.status(401).json({error:"Session expired"}); }
+  session.expires = Date.now() + 8*60*60*1000;
   saveSessions(SESSIONS);
   req.user = session.username;
   next();
@@ -91,6 +97,7 @@ app.post("/api/login",(req,res)=>{
   const token = genToken();
   SESSIONS[token] = {username:user.username,name:user.name,role:user.role,expires:Date.now()+8*60*60*1000};
   saveSessions(SESSIONS);
+  res.setHeader("Set-Cookie","htw_session="+token+"; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800");
   res.json({ok:true,token,name:user.name,role:user.role});
 });
 
@@ -98,7 +105,15 @@ app.post("/api/logout",requireAuth,(req,res)=>{
   const token = req.headers["x-auth-token"];
   delete SESSIONS[token];
   saveSessions(SESSIONS);
+  res.setHeader("Set-Cookie","htw_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
   res.json({ok:true});
+});
+
+app.get("/api/check-auth",(req,res)=>{
+  const cookies=parseCookies(req);
+  const token=req.headers["x-auth-token"]||cookies.htw_session;
+  if(!token||!SESSIONS[token]||Date.now()>SESSIONS[token].expires) return res.json({ok:false});
+  res.json({ok:true,name:SESSIONS[token].name||req.query.username||"Hassan"});
 });
 
 app.get("/api/me",requireAuth,(req,res)=>{
