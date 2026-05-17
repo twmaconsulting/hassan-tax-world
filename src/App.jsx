@@ -110,10 +110,10 @@ async function lsGet(key){
   // PRIMARY: load from server
   try{
     if(key==="kb-entries-v2"){
-      const r=await fetch(`${API}/entries`);
+      const r=await fetch(`${API}/entries`,{headers:{"x-auth-token":localStorage.getItem("htw_token")||""}});
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     } else if(key==="kb-files-meta-v2"){
-      const r=await fetch(`${API}/files-meta`);
+      const r=await fetch(`${API}/files-meta`,{headers:{"x-auth-token":localStorage.getItem("htw_token")||""}});
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     }
   }catch(e){console.warn("Server load failed, trying localStorage:",e);}
