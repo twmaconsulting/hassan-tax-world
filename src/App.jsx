@@ -2550,7 +2550,7 @@ function App(){
     setExpanded(p=>({...p,[catId]:true}));
   };
 
-  console.log("APP_TOKEN:",token?"EXISTS:"+token.slice(0,8):"EMPTY");if(!token) return <LoginScreen onLogin={(t,n)=>{setToken(t);setUserName(n);}}/>;
+  const _tok=localStorage.getItem("htw_token")||token||"";if(_tok&&!token)setToken(_tok);console.log("APP_TOKEN:",_tok?"EXISTS:"+_tok.slice(0,8):"EMPTY");if(!_tok) return <LoginScreen onLogin={(t,n)=>{setToken(t);setUserName(n);}}/>;
   if(!loaded)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#F0F2F5"}}><Spinner size={36}/></div>;
   const navCat=nav.catId?TAX_CATS.find(c=>c.id===nav.catId):null;
 
