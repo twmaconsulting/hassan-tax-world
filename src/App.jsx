@@ -2410,11 +2410,7 @@ export default function LoginScreen({onLogin}){
     try{
       const r=await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username.trim(),password})});
       const d=await r.json();
-      if(d.ok){
-        localStorage.setItem("htw_token",d.token);
-        localStorage.setItem("htw_name",d.name||username);
-        onLogin(d.token,d.name||username);
-      } else {
+      if(d.ok){localStorage.setItem("htw_token",d.token);localStorage.setItem("htw_name",d.name||username);window.location.href=window.location.origin;} else {
         setError(d.error||"Invalid credentials");
       }
     }catch(e2){console.error("LOGIN_ERR:",e2);setError("Error: "+(e2&&e2.message?e2.message:String(e2)));}
