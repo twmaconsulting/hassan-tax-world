@@ -85,7 +85,13 @@ app.use(express.urlencoded({extended:true,limit:"500mb"}));
 // Serve built React frontend
 const DIST = path.join(__dirname,"dist");
 if(fs.existsSync(DIST)){
-  app.use(express.static(DIST));
+  app.use(express.static(DIST,{
+    setHeaders(res,filePath){
+      if(filePath.endsWith(".js"))  res.setHeader("Content-Type","application/javascript; charset=utf-8");
+      if(filePath.endsWith(".html"))res.setHeader("Content-Type","text/html; charset=utf-8");
+      if(filePath.endsWith(".css")) res.setHeader("Content-Type","text/css; charset=utf-8");
+    }
+  }));
 }
 
 // ── Auth routes (public) ───────────────────────────────────────────────────
@@ -187,6 +193,10 @@ app.post("/api/files-meta",  requireAuth,(req,res)=>{
   metas.forEach(m=>{ const i=updated.findIndex(f=>f.name===m.name); if(i>=0)updated[i]=m; else updated.unshift(m); });
   writeJSON(FILES_META,updated);
   res.json({ok:true,count:updated.length});
+});
+app.put("/api/files-meta/all",requireAuth,(req,res)=>{
+  writeJSON(FILES_META,Array.isArray(req.body)?req.body:[]);
+  res.json({ok:true});
 });
 
 // File upload
