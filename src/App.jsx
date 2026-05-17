@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 /* ─── API helpers — talks to local Express server ────────────────────────── */
-const API = "/api";
+const API = "http://localhost:3001/api";
 
 async function apiListFiles() {
   try { const r = await fetch(`${API}/files`); return await r.json(); }
@@ -1151,10 +1151,3 @@ export default function App(){
     {aiTarget&&<AIPanel item={aiTarget.item} file={aiTarget.file} onClose={()=>setAiTarget(null)}/>}
   </div>);
 }
-
-
-
-
-
-
-
