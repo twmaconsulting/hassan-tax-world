@@ -98,9 +98,9 @@ async function lsSet(key,val){
   // PRIMARY: save to server (unlimited I: drive storage)
   try{
     if(key==="kb-entries-v2"){
-      await authFetch(`${API}/entries`,{method:"POST",body:JSON.stringify(val)});
+      await fetch(`${API}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)});
     } else if(key==="kb-files-meta-v2"){
-      await authFetch(`${API}/files-meta`,{method:"POST",body:JSON.stringify(Array.isArray(val)?val:[val])});
+      await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Array.isArray(val)?val:[val])});
     }
   }catch(e){console.warn("Server save failed:",e);}
   // FALLBACK: also try localStorage (may fail if full - that is OK)
@@ -110,10 +110,10 @@ async function lsGet(key){
   // PRIMARY: load from server
   try{
     if(key==="kb-entries-v2"){
-      const r=await authFetch(`${API}/entries`);
+      const r=await fetch(`${API}/entries`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     } else if(key==="kb-files-meta-v2"){
-      const r=await authFetch(`${API}/files-meta`);
+      const r=await fetch(`${API}/files-meta`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     }
   }catch(e){console.warn("Server load failed, trying localStorage:",e);}
@@ -136,7 +136,7 @@ async function callClaude(messages, system="") {
     if(d.type==="error") throw new Error(d.error?.message||JSON.stringify(d));
     return d.content?.map(b=>b.text||"").join("")||"";
   } catch(e) {
-    if(e.message==="Failed to fetch") throw new Error("Server unreachable — please refresh and try again.");
+    if(e.message==="Failed to fetch") throw new Error("Server unreachable — is npm run dev running on port 3001?");
     throw e;
   }
 }
@@ -2413,7 +2413,7 @@ export default function LoginScreen({onLogin}){
       if(d.ok){
         localStorage.setItem("htw_token",d.token);
         localStorage.setItem("htw_name",d.name||username);
-        onLogin(d.token,d.name||username);
+        window.location.reload();
       } else {
         setError(d.error||"Invalid credentials");
       }
@@ -2473,22 +2473,22 @@ function App(){
 
   useEffect(()=>{
     (async()=>{
-      const [e,f]=await Promise.all([lsGet(STORE_KEY),lsGet(FILES_KEY)]);
-      if(e)setEntries(e);
-      if(f)setFiles(f);
-      // Also sync file list from server
       try{
-        const serverFiles=await apiListFiles();
-        if(f&&serverFiles.length>0){
-          // Add any server files not yet in metadata
-          const existingNames=new Set((f||[]).map(x=>x.name));
-          const missing=serverFiles.filter(sf=>!existingNames.has(sf.name));
-          if(missing.length>0){
-            const newMeta=missing.map(sf=>({id:genId(),name:sf.name,fileType:"application/pdf",size:sf.size,catId:"gen",notes:"",pages:0,extractedText:"",createdAt:new Date(sf.modified).toISOString()}));
-            const next=[...(f||[]),...newMeta];
-            setFiles(next);await lsSet(FILES_KEY,next);
+        const [e,f]=await Promise.all([lsGet(STORE_KEY),lsGet(FILES_KEY)]);
+        if(e)setEntries(e);
+        if(f)setFiles(f);
+        try{
+          const serverFiles=await apiListFiles();
+          if(f&&serverFiles.length>0){
+            const existingNames=new Set((f||[]).map(x=>x.name));
+            const missing=serverFiles.filter(sf=>!existingNames.has(sf.name));
+            if(missing.length>0){
+              const newMeta=missing.map(sf=>({id:genId(),name:sf.name,fileType:"application/pdf",size:sf.size,catId:"gen",notes:"",pages:0,extractedText:"",createdAt:new Date(sf.modified).toISOString()}));
+              const next=[...(f||[]),...newMeta];
+              setFiles(next);await lsSet(FILES_KEY,next);
+            }
           }
-        }
+        }catch{}
       }catch{}
       setLoaded(true);
     })();
@@ -2554,7 +2554,7 @@ function App(){
     setExpanded(p=>({...p,[catId]:true}));
   };
 
-  if(!token) return <LoginScreen onLogin={(t,n)=>{setToken(t);setUserName(n);}}/>;
+  if(!token) return <LoginScreen onLogin={(t,n)=>{setToken(t);setUserName(n);setLoaded(false);}}/>;
   if(!loaded)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#F0F2F5"}}><Spinner size={36}/></div>;
   const navCat=nav.catId?TAX_CATS.find(c=>c.id===nav.catId):null;
 
