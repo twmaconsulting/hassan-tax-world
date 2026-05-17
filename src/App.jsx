@@ -2417,7 +2417,7 @@ export default function LoginScreen({onLogin}){
       } else {
         setError(d.error||"Invalid credentials");
       }
-    }catch(e2){setError("Cannot reach server. Make sure it is running.");}
+    }catch(e2){console.error("LOGIN_ERR:",e2);setError("Error: "+(e2&&e2.message?e2.message:String(e2)));}
     setLoading(false);
   }
 
