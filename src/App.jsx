@@ -2417,7 +2417,7 @@ export default function LoginScreen({onLogin}){
       } else {
         setError(d.error||"Invalid credentials");
       }
-    }catch(e2){setError("Cannot reach server. Make sure it is running.");}
+    }catch(e2){setError("DEBUG: "+(e2&&e2.message?e2.message:String(e2)));}
     setLoading(false);
   }
 
@@ -2473,22 +2473,22 @@ function App(){
 
   useEffect(()=>{
     (async()=>{
+      const [e,f]=await Promise.all([lsGet(STORE_KEY),lsGet(FILES_KEY)]);
+      if(e)setEntries(e);
+      if(f)setFiles(f);
+      // Also sync file list from server
       try{
-        const [e,f]=await Promise.all([lsGet(STORE_KEY),lsGet(FILES_KEY)]);
-        if(e)setEntries(e);
-        if(f)setFiles(f);
-        try{
-          const serverFiles=await apiListFiles();
-          if(f&&serverFiles.length>0){
-            const existingNames=new Set((f||[]).map(x=>x.name));
-            const missing=serverFiles.filter(sf=>!existingNames.has(sf.name));
-            if(missing.length>0){
-              const newMeta=missing.map(sf=>({id:genId(),name:sf.name,fileType:"application/pdf",size:sf.size,catId:"gen",notes:"",pages:0,extractedText:"",createdAt:new Date(sf.modified).toISOString()}));
-              const next=[...(f||[]),...newMeta];
-              setFiles(next);await lsSet(FILES_KEY,next);
-            }
+        const serverFiles=await apiListFiles();
+        if(f&&serverFiles.length>0){
+          // Add any server files not yet in metadata
+          const existingNames=new Set((f||[]).map(x=>x.name));
+          const missing=serverFiles.filter(sf=>!existingNames.has(sf.name));
+          if(missing.length>0){
+            const newMeta=missing.map(sf=>({id:genId(),name:sf.name,fileType:"application/pdf",size:sf.size,catId:"gen",notes:"",pages:0,extractedText:"",createdAt:new Date(sf.modified).toISOString()}));
+            const next=[...(f||[]),...newMeta];
+            setFiles(next);await lsSet(FILES_KEY,next);
           }
-        }catch{}
+        }
       }catch{}
       setLoaded(true);
     })();
