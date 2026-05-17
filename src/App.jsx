@@ -98,9 +98,9 @@ async function lsSet(key,val){
   // PRIMARY: save to server (unlimited I: drive storage)
   try{
     if(key==="kb-entries-v2"){
-      await fetch(`${API}/entries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(val)});
+      await authFetch(`${API}/entries`,{method:"POST",body:JSON.stringify(val)});
     } else if(key==="kb-files-meta-v2"){
-      await fetch(`${API}/files-meta`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Array.isArray(val)?val:[val])});
+      await authFetch(`${API}/files-meta`,{method:"POST",body:JSON.stringify(Array.isArray(val)?val:[val])});
     }
   }catch(e){console.warn("Server save failed:",e);}
   // FALLBACK: also try localStorage (may fail if full - that is OK)
@@ -110,10 +110,10 @@ async function lsGet(key){
   // PRIMARY: load from server
   try{
     if(key==="kb-entries-v2"){
-      const r=await fetch(`${API}/entries`);
+      const r=await authFetch(`${API}/entries`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     } else if(key==="kb-files-meta-v2"){
-      const r=await fetch(`${API}/files-meta`);
+      const r=await authFetch(`${API}/files-meta`);
       if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length>0)return d;}
     }
   }catch(e){console.warn("Server load failed, trying localStorage:",e);}
@@ -2413,11 +2413,11 @@ export default function LoginScreen({onLogin}){
       if(d.ok){
         localStorage.setItem("htw_token",d.token);
         localStorage.setItem("htw_name",d.name||username);
-        window.location.reload();
+        window.location.href=window.location.origin;
       } else {
         setError(d.error||"Invalid credentials");
       }
-    }catch(e2){setError("DEBUG: "+(e2&&e2.message?e2.message:String(e2)));}
+    }catch(e2){setError("Cannot reach server. Please try again.");}
     setLoading(false);
   }
 

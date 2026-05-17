@@ -16,7 +16,18 @@ const FILES_DIR = process.env.FILES_DIR || path.join(__dirname, "tax-files");
 const ENTRIES   = path.join(DATA_DIR, "entries.json");
 const FILES_META= path.join(DATA_DIR, "files-meta.json");
 const USERS_FILE= path.join(DATA_DIR, "users.json");
-const SESSIONS  = {};  // token -> {username, expires}
+// ── Sessions (persisted to disk so they survive server restarts) ───────────
+const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
+function loadSessions(){
+  try{ return JSON.parse(fs.readFileSync(SESSIONS_FILE,"utf8")); }catch{ return {}; }
+}
+function saveSessions(s){
+  try{ fs.writeFileSync(SESSIONS_FILE,JSON.stringify(s)); }catch{}
+}
+const SESSIONS = loadSessions();
+// Clean expired sessions on startup
+Object.keys(SESSIONS).forEach(t=>{ if(Date.now()>SESSIONS[t].expires) delete SESSIONS[t]; });
+saveSessions(SESSIONS);
 
 // ── API Key ────────────────────────────────────────────────────────────────
 let ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
@@ -53,8 +64,9 @@ function requireAuth(req,res,next){
   if(!token) return res.status(401).json({error:"Not authenticated"});
   const session = SESSIONS[token];
   if(!session) return res.status(401).json({error:"Session expired"});
-  if(Date.now() > session.expires) { delete SESSIONS[token]; return res.status(401).json({error:"Session expired"}); }
+  if(Date.now() > session.expires) { delete SESSIONS[token]; saveSessions(SESSIONS); return res.status(401).json({error:"Session expired"}); }
   session.expires = Date.now() + 8*60*60*1000; // refresh
+  saveSessions(SESSIONS);
   req.user = session.username;
   next();
 }
@@ -78,12 +90,14 @@ app.post("/api/login",(req,res)=>{
   if(!user) return res.status(401).json({ok:false,error:"Invalid username or password"});
   const token = genToken();
   SESSIONS[token] = {username:user.username,name:user.name,role:user.role,expires:Date.now()+8*60*60*1000};
+  saveSessions(SESSIONS);
   res.json({ok:true,token,name:user.name,role:user.role});
 });
 
 app.post("/api/logout",requireAuth,(req,res)=>{
   const token = req.headers["x-auth-token"];
   delete SESSIONS[token];
+  saveSessions(SESSIONS);
   res.json({ok:true});
 });
 
