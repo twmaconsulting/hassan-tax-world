@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-/* ─── API helpers — talks to Express server ──────────────────────────────── */
-const API = "/api";
+/* ─── API helpers — talks to local Express server ────────────────────────── */
+const API = "http://localhost:3001/api";
 
 async function apiListFiles() {
   try { const r = await fetch(`${API}/files`); return await r.json(); }
@@ -62,16 +62,13 @@ async function extractPdfTextFromBase64(b64) {
   } catch(e) { return { text:"", pages:0 }; }
 }
 
-/* ─── Server API helpers ─────────────────────────────────────────────────── */
-async function apiGetEntries(){ try{const r=await fetch("/api/entries");if(!r.ok)return[];return await r.json();}catch{return[];} }
-async function apiSaveEntries(entries){ try{await fetch("/api/entries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entries)});}catch{} }
-async function apiGetFilesMeta(){ try{const r=await fetch("/api/files-meta");if(!r.ok)return[];return await r.json();}catch{return[];} }
-async function apiUpsertFilesMeta(metas){ try{await fetch("/api/files-meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(metas)});}catch{} }
-async function apiReplaceFilesMeta(metas){ try{await fetch("/api/files-meta/all",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(metas)});}catch{} }
+/* ─── LocalStorage for metadata & entries ───────────────────────────────── */
+async function lsSet(key,val){ try{localStorage.setItem(key,JSON.stringify(val));}catch{} }
+async function lsGet(key){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch{return null;} }
 
 async function callClaude(messages, system="") {
   try {
-    const res=await fetch("/api/ai",{
+    const res=await fetch("http://localhost:3001/api/ai",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({system,messages})
     });
@@ -223,7 +220,9 @@ function EntryForm({catId,docTypeId,initial,onSave,onClose}){
       }
       // Save to file library too
       const meta={id:genId(),name:saved.name,originalName:saved.original,fileType:file.type,size:saved.size,catId,notes:"",pages,extractedText,createdAt:new Date().toISOString()};
-      await apiUpsertFilesMeta([meta]);
+      // Store meta in localStorage
+      const existing=JSON.parse(localStorage.getItem("kb-files-meta-v2")||"[]");
+      localStorage.setItem("kb-files-meta-v2",JSON.stringify([meta,...existing]));
       s("attachedFile",{name:saved.name,pages,size:saved.size});
       setUploadMsg(`✓ ${saved.name} attached${pages>0?` · ${pages} pages extracted`:""}`);
     }catch(e){
@@ -779,7 +778,7 @@ function FileLib({files,setFiles,onAI}){
       }
       const next=[...newMeta,...files];
       setFiles(next);
-      await apiUpsertFilesMeta(newMeta);
+      await lsSet(FILES_KEY,next.map(m=>({...m})));
       setProgress(100);
       setStatus(`✓ ${res.files.length} file(s) saved to your PC`);
       setTimeout(()=>{setUploading(false);setStatus("");setProgress(0);},2000);
@@ -794,12 +793,12 @@ function FileLib({files,setFiles,onAI}){
     try{await apiDelete(file.name);}catch{}
     const next=files.filter(f=>f.id!==file.id);
     setFiles(next);
-    await apiReplaceFilesMeta(next);
+    await lsSet(FILES_KEY,next);
   }
 
   async function saveEdit(u){
     const next=files.map(f=>f.id===u.id?{...f,...u}:f);
-    setFiles(next);await apiReplaceFilesMeta(next);
+    setFiles(next);await lsSet(FILES_KEY,next);
   }
 
   const cat4=id=>TAX_CATS.find(c=>c.id===id)||TAX_CATS[TAX_CATS.length-1];
@@ -1004,88 +1003,35 @@ function Dashboard({entries,files,onCat,onSearch}){
   </div>);
 }
 
-/* ─── Login Screen ───────────────────────────────────────────────────────── */
-function LoginScreen({onLogin}){
-  const [user,setUser]=useState("admin");
-  const [pass,setPass]=useState("");
-  const [err,setErr]=useState("");
-  const [loading,setLoading]=useState(false);
-  async function submit(){
-    if(!pass.trim()){setErr("Please enter your password");return;}
-    setLoading(true);setErr("");
-    try{
-      const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:user,password:pass})});
-      const d=await r.json();
-      if(d.ok) onLogin();
-      else setErr(d.error||"Invalid credentials");
-    }catch{setErr("Cannot reach server — please try again");}
-    setLoading(false);
-  }
-  return(
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"linear-gradient(135deg,#0f2044 0%,#1a3a6e 100%)"}}>
-      <div style={{background:"#fff",borderRadius:18,boxShadow:"0 8px 60px rgba(0,0,0,0.3)",padding:"2.5rem",width:"100%",maxWidth:380}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:54,height:54,background:"var(--nav)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontWeight:900,fontSize:22,color:"#fff"}}>H</div>
-          <h1 style={{fontSize:22,fontWeight:800,color:"var(--text)",marginBottom:4}}>Hassan Tax World</h1>
-          <p style={{fontSize:13,color:"var(--text2)"}}>UAE Tax Knowledge Base</p>
-        </div>
-        <div style={{marginBottom:14}}>
-          <label style={{display:"block",fontSize:11,fontWeight:700,color:"var(--text2)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>Username</label>
-          <input style={{...IS,width:"100%",boxSizing:"border-box"}} value={user} onChange={e=>setUser(e.target.value)} autoFocus/>
-        </div>
-        <div style={{marginBottom:20}}>
-          <label style={{display:"block",fontSize:11,fontWeight:700,color:"var(--text2)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>Password</label>
-          <input type="password" style={{...IS,width:"100%",boxSizing:"border-box"}} value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
-        </div>
-        {err&&<p style={{color:"#DC2626",fontSize:13,marginBottom:14,textAlign:"center",background:"#FEF2F2",padding:"8px 12px",borderRadius:8}}>{err}</p>}
-        <button onClick={submit} disabled={loading} style={{width:"100%",padding:"12px",background:"var(--nav)",border:"none",color:"#fff",fontWeight:700,fontSize:15,borderRadius:10,cursor:loading?"not-allowed":"pointer",opacity:loading?0.75:1,transition:"opacity 0.2s"}}>
-          {loading?"Signing in...":"Sign In"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main App ───────────────────────────────────────────────────────────── */
 export default function App(){
   const [entries,setEntries]=useState([]);
   const [files,setFiles]=useState([]);
   const [loaded,setLoaded]=useState(false);
-  const [authed,setAuthed]=useState(false);
   const [nav,setNav]=useState({view:"dashboard"});
   const [expanded,setExpanded]=useState({});
   const [modal,setModal]=useState(null);
   const [detail,setDetail]=useState(null);
   const [aiTarget,setAiTarget]=useState(null);
 
-  async function loadData(){
-    try{
-      const [er,fr]=await Promise.all([fetch("/api/entries"),fetch("/api/files-meta")]);
-      const e=await er.json(); const f=await fr.json();
-      if(Array.isArray(e))setEntries(e);
-      if(Array.isArray(f))setFiles(f);
-      // Sync any server files not yet in metadata
+  useEffect(()=>{
+    (async()=>{
+      const [e,f]=await Promise.all([lsGet(STORE_KEY),lsGet(FILES_KEY)]);
+      if(e)setEntries(e);
+      if(f)setFiles(f);
+      // Also sync file list from server
       try{
         const serverFiles=await apiListFiles();
-        if(Array.isArray(f)&&serverFiles.length>0){
-          const existingNames=new Set(f.map(x=>x.name));
+        if(f&&serverFiles.length>0){
+          // Add any server files not yet in metadata
+          const existingNames=new Set((f||[]).map(x=>x.name));
           const missing=serverFiles.filter(sf=>!existingNames.has(sf.name));
           if(missing.length>0){
             const newMeta=missing.map(sf=>({id:genId(),name:sf.name,fileType:"application/pdf",size:sf.size,catId:"gen",notes:"",pages:0,extractedText:"",createdAt:new Date(sf.modified).toISOString()}));
-            const next=[...f,...newMeta];
-            setFiles(next);await apiUpsertFilesMeta(newMeta);
+            const next=[...(f||[]),...newMeta];
+            setFiles(next);await lsSet(FILES_KEY,next);
           }
         }
-      }catch{}
-    }catch{}
-  }
-
-  useEffect(()=>{
-    (async()=>{
-      try{
-        const ar=await fetch("/api/check-auth");
-        const ad=await ar.json();
-        if(ad.ok){await loadData();setAuthed(true);}
       }catch{}
       setLoaded(true);
     })();
@@ -1093,10 +1039,10 @@ export default function App(){
 
   const saveEntry=async item=>{
     const nx=modal?.editing?entries.map(x=>x.id===item.id?item:x):[item,...entries];
-    setEntries(nx);await apiSaveEntries(nx);
+    setEntries(nx);await lsSet(STORE_KEY,nx);
   };
   const deleteEntry=async id=>{
-    const nx=entries.filter(x=>x.id!==id);setEntries(nx);await apiSaveEntries(nx);setDetail(null);
+    const nx=entries.filter(x=>x.id!==id);setEntries(nx);await lsSet(STORE_KEY,nx);setDetail(null);
   };
   const goCat=(catId)=>{
     const tabs=docTypesForCat(catId);
@@ -1105,7 +1051,6 @@ export default function App(){
   };
 
   if(!loaded)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#F0F2F5"}}><Spinner size={36}/></div>;
-  if(!authed)return<LoginScreen onLogin={async()=>{await loadData();setAuthed(true);}}/>;
   const navCat=nav.catId?TAX_CATS.find(c=>c.id===nav.catId):null;
 
   return(<div style={{display:"flex",minHeight:"100vh"}}>
@@ -1116,7 +1061,7 @@ export default function App(){
       {/* Logo */}
       <div style={{padding:"1.1rem 1rem",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:36,height:36,background:"var(--accent)",borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:16,color:"#fff",flexShrink:0,letterSpacing:"-1px"}}>H</div>
+          <div style={{width:36,height:36,background:"var(--accent)",borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>⚖</div>
           <div><p style={{color:"#fff",fontWeight:700,fontSize:14}}>UAE Tax</p><p style={{color:"rgba(255,255,255,0.35)",fontSize:11}}>Hassan Tax World</p></div>
         </div>
       </div>
@@ -1164,9 +1109,6 @@ export default function App(){
             <span style={{fontSize:14,width:18,textAlign:"center"}}>{n.icon}</span>{n.label}
           </button>
         ))}
-        <button onClick={async()=>{try{await fetch("/api/logout",{method:"POST"});}catch{}setAuthed(false);setEntries([]);setFiles([]);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"8px 12px",marginTop:4,borderRadius:7,background:"transparent",border:"none",cursor:"pointer",textAlign:"left",color:"rgba(255,255,255,0.35)",fontSize:12}}>
-          <span style={{fontSize:13,width:18,textAlign:"center"}}>&#8594;</span>Sign Out
-        </button>
       </div>
     </div>
 
